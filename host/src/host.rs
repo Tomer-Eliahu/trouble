@@ -20,7 +20,7 @@ use bt_hci::cmd::link_control::Disconnect;
 use bt_hci::cmd::{AsyncCmd, SyncCmd};
 use bt_hci::controller::{blocking, Controller, ControllerCmdAsync, ControllerCmdSync};
 use bt_hci::data::{AclBroadcastFlag, AclPacket, AclPacketBoundary};
-use bt_hci::event::le::LeEvent;
+use bt_hci::event::le::{LeEvent, LePeriodicAdvertisingReport, LePeriodicAdvertisingSyncEstablished};
 use bt_hci::event::{Event, Vendor};
 use bt_hci::param::{
     AddrKind, AdvHandle, AdvSet, BdAddr, ConnHandle, DisconnectReason, EventMask, EventMaskPage2, FilterDuplicates,
@@ -627,6 +627,13 @@ pub trait EventHandler {
     /// Handle extended advertising reports
     #[cfg(feature = "scan")]
     fn on_ext_adv_reports(&self, reports: bt_hci::param::LeExtAdvReportsIter) {}
+    /// Handle a single periodic advertising report
+    #[cfg(feature = "scan")]
+    fn on_periodic_adv_report(&self, report: &LePeriodicAdvertisingReport) {}
+
+
+    #[cfg(feature = "scan")]
+    fn on_sync(&self, report: &LePeriodicAdvertisingSyncEstablished) {}
 }
 
 struct DummyHandler;
@@ -805,6 +812,21 @@ impl<'d, C: Controller, P: PacketPool> RxRunner<'d, C, P> {
                             LeEvent::LeAdvertisingSetTerminated(set) => {
                                 host.advertise_state.terminate(set.adv_handle);
                             }
+                            LeEvent::LePeriodicAdvertisingSyncEstablished(data) => {
+                                #[cfg(feature = "scan")]
+                                {
+                                    event_handler.on_sync(data);
+  
+                                }
+                            }
+                            LeEvent::LePeriodicAdvertisingReport(data) => {
+                                #[cfg(feature = "scan")]
+                                {
+                                    event_handler.on_periodic_adv_report(data);
+                                    //The data is a *single* report as specified here 
+                                    //https://docs.rs/bt-hci/latest/bt_hci/event/le/struct.LePeriodicAdvertisingReport.html
+                                }
+                            }
                             LeEvent::LeExtendedAdvertisingReport(data) => {
                                 #[cfg(feature = "scan")]
                                 {
@@ -951,12 +973,27 @@ impl<'d, C: Controller, P: PacketPool> ControlRunner<'d, C, P> {
                 .enable_conn_complete(true)
                 .enable_hardware_error(true)
                 .enable_disconnection_complete(true)
-                .enable_encryption_change_v1(true),
-        )
+                .enable_encryption_change_v1(true)
+                //Added:
+                .enable_role_change(true)
+                .enable_mode_change(true)
+                .enable_read_clock_offset_complete(true)
+                .enable_conn_packet_kind_changed(true)
+                .enable_page_scan_repetition_mode_change(true)
+                .enable_synchronous_conn_complete(true)
+                .enable_synchronous_conn_changed(true)
+            )
         .exec(&host.controller)
         .await?;
 
-        SetEventMaskPage2::new(EventMaskPage2::new().enable_encryption_change_v2(true))
+        //Added enable_synchronization_train_complete and enable_synchronization_train_received -- did nothing
+        SetEventMaskPage2::new(EventMaskPage2::new().enable_encryption_change_v2(true)
+        //ADDED:
+        .enable_synchronization_train_received(true).enable_synchronization_train_complete(true)
+        .enable_connectionless_peripheral_broadcast_receive(true)
+        .enable_connectionless_peripheral_broadcast_timeout(true)
+        .enable_triggered_clock_capture(true)
+        .enable_connectionless_peripheral_broadcast_channel_map_change(true))
             .exec(&host.controller)
             .await?;
 
@@ -969,6 +1006,17 @@ impl<'d, C: Controller, P: PacketPool> ControlRunner<'d, C, P> {
                 .enable_le_adv_report(true)
                 .enable_le_scan_timeout(true)
                 .enable_le_ext_adv_report(true)
+                .enable_le_periodic_adv_sync_established(true) //added
+                .enable_le_periodic_adv_report(true) //added
+                .enable_le_periodic_adv_sync_lost(true)//added
+                .enable_le_channel_selection_algorithm(true) //added --I think this is key for PA
+                .enable_le_periodic_adv_subevent_data_request(true)//maybe comment out 
+                .enable_le_data_length_change(true)
+                .enable_le_big_sync_established(true)
+                .enable_le_big_sync_lost(true)
+                .enable_le_biginfo_adv_report(true)
+                //.enable_le_periodic_adv_sync_established_v2(true)// --also attempted. EA is v1 so this should be v1 as well
+                //.enable_le_periodic_adv_report_v2(true) //--also attempted
                 .enable_le_long_term_key_request(true)
                 .enable_le_phy_update_complete(true),
         )
