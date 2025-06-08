@@ -1011,6 +1011,7 @@ impl<'d, C: Controller, P: PacketPool> ControlRunner<'d, C, P> {
                 .enable_le_periodic_adv_sync_lost(true)//added
                 .enable_le_channel_selection_algorithm(true) //added --I think this is key for PA
                 .enable_le_periodic_adv_subevent_data_request(true)//maybe comment out 
+                .enable_le_periodic_adv_response_report(true) //New added
                 .enable_le_data_length_change(true)
                 .enable_le_big_sync_established(true)
                 .enable_le_big_sync_lost(true)
