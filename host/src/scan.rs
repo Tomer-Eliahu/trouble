@@ -62,7 +62,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         //self.central.set_accept_filter(config.filter_accept_list).await?; --maybe this causes an error
 
         let scanning = ScanningPhy {
-            active_scan: config.active, //try passive scanning?
+            active_scan: false, //try passive scanning?
             scan_interval: config.interval.into(),
             scan_window: config.window.into(),
         };
@@ -73,7 +73,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         //maybe comment this out to fall back on Vendor default
         host.command(LeSetExtScanParams::new(
             host.address.map(|s| s.kind).unwrap_or(AddrKind::PUBLIC),
-            bt_hci::param::ScanningFilterPolicy::BasicUnfiltered, //try ext unfiltered?
+            bt_hci::param::ScanningFilterPolicy::ExtUnfiltered, //try ext unfiltered?
             phy_params,
         ))
         .await?;
