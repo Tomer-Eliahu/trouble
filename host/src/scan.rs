@@ -57,11 +57,12 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         let drop = crate::host::OnDrop::new(|| {
             host.scan_command_state.cancel(false);
         });
+        
         host.scan_command_state.request().await;
-        self.central.set_accept_filter(config.filter_accept_list).await?;
+        //self.central.set_accept_filter(config.filter_accept_list).await?; --maybe this causes an error
 
         let scanning = ScanningPhy {
-            active_scan: config.active,
+            active_scan: config.active, //try passive scanning?
             scan_interval: config.interval.into(),
             scan_window: config.window.into(),
         };
@@ -72,16 +73,36 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         //maybe comment this out to fall back on Vendor default
         host.command(LeSetExtScanParams::new(
             host.address.map(|s| s.kind).unwrap_or(AddrKind::PUBLIC),
-            if config.filter_accept_list.is_empty() {
-                bt_hci::param::ScanningFilterPolicy::BasicUnfiltered
-            } else {
-                bt_hci::param::ScanningFilterPolicy::BasicFiltered
-            },
+            bt_hci::param::ScanningFilterPolicy::BasicUnfiltered, //try ext unfiltered?
             phy_params,
         ))
         .await?;
 
         //This is the difference from simply scan_ext --it is fine to put this before ext scan enable
+        // host.async_command(LePeriodicAdvCreateSync::new(
+        //     param.options,
+        //     param.adv_sid,
+        //     param.adv_addr_kind,
+        //     param.adv_addr,
+        //     param.skip,
+        //     param.sync_timeout,
+        //     param.sync_cte_kind
+        // ))
+        // .await?;
+
+
+        //This tells our device to scan continuously (using 0 seconds)
+        host.command(LeSetExtScanEnable::new(
+            true,
+            FilterDuplicates::Disabled,
+            bt_hci::param::Duration::from_secs(0),
+            bt_hci::param::Duration::from_secs(0),
+        ))
+        .await?;
+
+        embassy_time::Timer::after_secs(10).await;
+        
+        //This is the difference from simply scan_ext
         host.async_command(LePeriodicAdvCreateSync::new(
             param.options,
             param.adv_sid,
@@ -94,31 +115,6 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         .await?;
 
         embassy_time::Timer::after_secs(5).await;
-
-
-        host.command(LeSetExtScanEnable::new(
-            true,
-            FilterDuplicates::Disabled,
-            config.timeout.into(),
-            bt_hci::param::Duration::from_secs(0),
-        ))
-        .await?;
-
-        // embassy_time::Timer::after_secs(10).await;
-        
-        // //This is the difference from simply scan_ext
-        // host.async_command(LePeriodicAdvCreateSync::new(
-        //     param.options,
-        //     param.adv_sid,
-        //     param.adv_addr_kind,
-        //     param.adv_addr,
-        //     param.skip,
-        //     param.sync_timeout,
-        //     param.sync_cte_kind
-        // ))
-        // .await?;
-
-        embassy_time::Timer::after_secs(5).await;
         //This is indeed a sync command-- HACK: we know the SyncHandle will be 0
         host.command(LeSetPeriodicAdvReceiveEnable::new(bt_hci::param::SyncHandle::default(), 
         bt_hci::param::LePeriodicAdvReceiveEnable::new().set_duplicate_filtering(false).set_reporting(true))).await?;
@@ -126,11 +122,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         drop.defuse();
         Ok(ScanSession {
             command_state: &self.central.stack.host.scan_command_state,
-            deadline: if config.timeout.as_ticks() == 0 {
-                None
-            } else {
-                Some(Instant::now() + config.timeout.into())
-            },
+            deadline: None,
             done: false,
         })
     }
