@@ -194,10 +194,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
     {
 
         let host = &self.central.stack.host;
-        let drop = crate::host::OnDrop::new(|| {
-            host.scan_command_state.cancel(true); //I think this should be true
-        });
-        host.scan_command_state.request().await;
+
         //The Enable parameter determines whether scanning is enabled or disabled.
         //If it is set to 0x00, the remaining parameters shall be ignored.
         //https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-bfe8407c-4def-2ded-51dd-e47cf9e8916c:~:text=7.8.65.%20LE%20Set%20Extended%20Scan%20Enable%20command
@@ -208,7 +205,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
             bt_hci::param::Duration::from_secs(0),
         ))
         .await?;
-        drop.defuse();
+
         Ok(())
     }
 
