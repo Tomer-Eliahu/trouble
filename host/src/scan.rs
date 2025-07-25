@@ -62,7 +62,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         //self.central.set_accept_filter(config.filter_accept_list).await?; --maybe this causes an error
 
         let scanning = ScanningPhy {
-            active_scan: false, //try passive scanning?
+            active_scan: config.active, 
             scan_interval: config.interval.into(),
             scan_window: config.window.into(),
         };
@@ -73,7 +73,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         //maybe comment this out to fall back on Vendor default
         host.command(LeSetExtScanParams::new(
             host.address.map(|s| s.kind).unwrap_or(AddrKind::PUBLIC),
-            bt_hci::param::ScanningFilterPolicy::ExtUnfiltered, //try ext unfiltered?
+            bt_hci::param::ScanningFilterPolicy::BasicUnfiltered, 
             phy_params,
         ))
         .await?;
@@ -91,16 +91,17 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         // .await?;
 
 
-        //This tells our device to scan continuously (using 0 seconds)
+        //config.window is the duration of the scan.
+        //config.interval is the period of the scan.
+        //We can scan continuously by settting these to 0 seconds.
         host.command(LeSetExtScanEnable::new(
             true,
             FilterDuplicates::Disabled,
-            bt_hci::param::Duration::from_secs(0),
-            bt_hci::param::Duration::from_secs(0),
+            config.window,
+            config.interval,
         ))
         .await?;
 
-        embassy_time::Timer::after_secs(10).await;
         
         //This is the difference from simply scan_ext
         host.async_command(LePeriodicAdvCreateSync::new(
@@ -114,22 +115,26 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         ))
         .await?;
 
-        embassy_time::Timer::after_secs(5).await;
-        //This is indeed a sync command-- HACK: we know the SyncHandle will be 0
-        host.command(LeSetPeriodicAdvReceiveEnable::new(bt_hci::param::SyncHandle::default(), 
-        bt_hci::param::LePeriodicAdvReceiveEnable::new().set_duplicate_filtering(false).set_reporting(true))).await?;
+        // embassy_time::Timer::after_secs(5).await;
+        // //This is indeed a sync command-- HACK: we know the SyncHandle will be 0
+        // host.command(LeSetPeriodicAdvReceiveEnable::new(bt_hci::param::SyncHandle::default(), 
+        // bt_hci::param::LePeriodicAdvReceiveEnable::new().set_duplicate_filtering(false).set_reporting(true))).await?;
 
         drop.defuse();
         Ok(ScanSession {
             command_state: &self.central.stack.host.scan_command_state,
-            deadline: None,
+            deadline: if config.timeout.as_ticks() == 0 {
+                None
+            } else {
+                Some(Instant::now() + config.timeout.into())
+            },
             done: false,
         })
     }
 
     /// Performs an extended BLE scan, return a report for discovering peripherals.
     ///
-    /// Scan is stopped when a report is received. Call this method repeatedly to continue scanning.
+    /// Scan is stopped when a report is received -- *Is it really??*. Call this method repeatedly to continue scanning.
     pub async fn scan_ext(&mut self, config: &ScanConfig<'_>) -> Result<ScanSession<'_, true>, BleHostError<C::Error>>
     where
         C: ControllerCmdSync<LeSetExtScanEnable>
@@ -181,9 +186,53 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         })
     }
 
+    ///Stop extended scanning. Needed as currently the timeout for ScanSession does nothing.
+    /// Disabling scanning when it is already disabled has no effect.
+    pub fn stop_ext_scan(&mut self) -> Result<(), BleHostError<C::Error>>{
+        let host = &self.central.stack.host;
+        let drop = crate::host::OnDrop::new(|| {
+            host.scan_command_state.cancel(false);
+        });
+        host.scan_command_state.request().await;
+        //The Enable parameter determines whether scanning is enabled or disabled.
+        //If it is set to 0x00, the remaining parameters shall be ignored.
+        //https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-bfe8407c-4def-2ded-51dd-e47cf9e8916c:~:text=7.8.65.%20LE%20Set%20Extended%20Scan%20Enable%20command
+        host.command(LeSetExtScanEnable::new(
+            false,
+            FilterDuplicates::Disabled,
+            bt_hci::param::Duration::from_secs(0),,
+            bt_hci::param::Duration::from_secs(0),
+        ))
+        .await?;
+        drop.defuse();
+        Ok(())
+    }
+
+    ///Stop scanning. Needed as currently the timeout for ScanSession does nothing.
+    /// 
+    /// **Note**: Has no impact on extended scanning.
+    /// Disabling scanning when it is already disabled has no effect.
+    /// 
+    /// For more info:
+    /// https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-10327f75-4024-80df-14bc-68fe1e42b9e0:~:text=7.8.11.%20LE%20Set%20Scan%20Enable%20command
+    pub fn stop_scan(&mut self) -> Result<(), BleHostError<C::Error>>{
+        let host = &self.central.stack.host;
+        let drop = crate::host::OnDrop::new(|| {
+            host.scan_command_state.cancel(false);
+        });
+        host.scan_command_state.request().await;
+        host.command(LeSetScanEnable::new(
+            false,
+            FilterDuplicates::Disabled,
+        ))
+        .await?;
+        drop.defuse();
+        Ok(())
+    }
+
     /// Performs a BLE scan, return a report for discovering peripherals.
     ///
-    /// Scan is stopped when a report is received. Call this method repeatedly to continue scanning.
+    /// Scan is stopped when a report is received-- *Is it really??*. Call this method repeatedly to continue scanning.
     pub async fn scan(&mut self, config: &ScanConfig<'_>) -> Result<ScanSession<'_, false>, BleHostError<C::Error>>
     where
         C: ControllerCmdSync<LeSetScanParams>
