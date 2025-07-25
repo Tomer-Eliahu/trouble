@@ -55,7 +55,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         //First we enable extended scanning.
         let host = &self.central.stack.host;
         let drop = crate::host::OnDrop::new(|| {
-            host.scan_command_state.cancel(false);
+            host.scan_command_state.cancel(true); //I think this should be true
         });
         
         host.scan_command_state.request().await;
@@ -144,7 +144,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
     {
         let host = &self.central.stack.host;
         let drop = crate::host::OnDrop::new(|| {
-            host.scan_command_state.cancel(false);
+            host.scan_command_state.cancel(true); //I think this should be true
         });
         host.scan_command_state.request().await;
         self.central.set_accept_filter(config.filter_accept_list).await?;
@@ -195,7 +195,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
 
         let host = &self.central.stack.host;
         let drop = crate::host::OnDrop::new(|| {
-            host.scan_command_state.cancel(false);
+            host.scan_command_state.cancel(true); //I think this should be true
         });
         host.scan_command_state.request().await;
         //The Enable parameter determines whether scanning is enabled or disabled.
