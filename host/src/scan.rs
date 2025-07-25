@@ -97,8 +97,8 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         host.command(LeSetExtScanEnable::new(
             true,
             FilterDuplicates::Disabled,
-            config.window,
-            config.interval,
+            config.window.into(),
+            config.interval.into(),
         ))
         .await?;
 
@@ -188,7 +188,11 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
 
     ///Stop extended scanning. Needed as currently the timeout for ScanSession does nothing.
     /// Disabling scanning when it is already disabled has no effect.
-    pub fn stop_ext_scan(&mut self) -> Result<(), BleHostError<C::Error>>{
+    pub async fn stop_ext_scan(&mut self) -> Result<(), BleHostError<C::Error>>
+    where
+        C: ControllerCmdSync<LeSetExtScanEnable>
+    {
+
         let host = &self.central.stack.host;
         let drop = crate::host::OnDrop::new(|| {
             host.scan_command_state.cancel(false);
@@ -200,7 +204,7 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         host.command(LeSetExtScanEnable::new(
             false,
             FilterDuplicates::Disabled,
-            bt_hci::param::Duration::from_secs(0),,
+            bt_hci::param::Duration::from_secs(0),
             bt_hci::param::Duration::from_secs(0),
         ))
         .await?;
@@ -215,17 +219,16 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
     /// 
     /// For more info:
     /// https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-10327f75-4024-80df-14bc-68fe1e42b9e0:~:text=7.8.11.%20LE%20Set%20Scan%20Enable%20command
-    pub fn stop_scan(&mut self) -> Result<(), BleHostError<C::Error>>{
+    pub async fn stop_scan(&mut self) -> Result<(), BleHostError<C::Error>>
+    where
+        C: ControllerCmdSync<LeSetScanEnable>
+    {
         let host = &self.central.stack.host;
         let drop = crate::host::OnDrop::new(|| {
             host.scan_command_state.cancel(false);
         });
         host.scan_command_state.request().await;
-        host.command(LeSetScanEnable::new(
-            false,
-            FilterDuplicates::Disabled,
-        ))
-        .await?;
+        host.command(LeSetScanEnable::new(false, false)).await?;
         drop.defuse();
         Ok(())
     }
