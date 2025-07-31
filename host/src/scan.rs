@@ -79,16 +79,16 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
         .await?;
 
         //This is the difference from simply scan_ext --it is fine to put this before ext scan enable
-        // host.async_command(LePeriodicAdvCreateSync::new(
-        //     param.options,
-        //     param.adv_sid,
-        //     param.adv_addr_kind,
-        //     param.adv_addr,
-        //     param.skip,
-        //     param.sync_timeout,
-        //     param.sync_cte_kind
-        // ))
-        // .await?;
+        host.async_command(LePeriodicAdvCreateSync::new(
+            param.options,
+            param.adv_sid,
+            param.adv_addr_kind,
+            param.adv_addr,
+            param.skip,
+            param.sync_timeout,
+            param.sync_cte_kind
+        ))
+        .await?;
 
 
         //config.window is the duration of the scan.
@@ -104,16 +104,16 @@ impl<'d, C: Controller, P: PacketPool> Scanner<'d, C, P> {
 
         
         //This is the difference from simply scan_ext
-        host.async_command(LePeriodicAdvCreateSync::new(
-            param.options,
-            param.adv_sid,
-            param.adv_addr_kind,
-            param.adv_addr,
-            param.skip,
-            param.sync_timeout,
-            param.sync_cte_kind
-        ))
-        .await?;
+        // host.async_command(LePeriodicAdvCreateSync::new(
+        //     param.options,
+        //     param.adv_sid,
+        //     param.adv_addr_kind,
+        //     param.adv_addr,
+        //     param.skip,
+        //     param.sync_timeout,
+        //     param.sync_cte_kind
+        // ))
+        // .await?;
 
         // embassy_time::Timer::after_secs(5).await;
         // //This is indeed a sync command-- HACK: we know the SyncHandle will be 0
