@@ -1042,8 +1042,8 @@ impl<'d, C: Controller, P: PacketPool> ControlRunner<'d, C, P> {
                 .enable_le_big_sync_established(true)
                 .enable_le_big_sync_lost(true)
                 .enable_le_biginfo_adv_report(true)
-                //.enable_le_periodic_adv_sync_established_v2(true)// --also attempted. EA is v1 so this should be v1 as well
-                //.enable_le_periodic_adv_report_v2(true) //--also attempted
+                .enable_le_periodic_adv_sync_established_v2(true)// --also attempted. EA is v1 so this should be v1 as well
+                .enable_le_periodic_adv_report_v2(true) //--also attempted
                 .enable_le_long_term_key_request(true)
                 .enable_le_phy_update_complete(true)
                 .enable_le_data_length_change(true),
