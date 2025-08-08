@@ -1074,7 +1074,7 @@ impl<'d, C: Controller, P: PacketPool> ControlRunner<'d, C, P> {
             "[host] configuring host buffers ({} packets of size {})",
             ACL_N, ACL_LEN,
         );
-        HostBufferSize::new(ACL_LEN, 0, ACL_N, 0).exec(&host.controller).await?;
+        //HostBufferSize::new(ACL_LEN, 0, ACL_N, 0).exec(&host.controller).await?;
 
         /*
                 #[cfg(feature = "controller-host-flow-control")]
