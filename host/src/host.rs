@@ -1069,7 +1069,7 @@ impl<'d, C: Controller, P: PacketPool> ControlRunner<'d, C, P> {
             .set_link_credits(ret.total_num_le_acl_data_packets as usize);
 
         const ACL_LEN: u16 = 255;
-        const ACL_N: u16 = 1;
+        const ACL_N: u16 = 10;
         info!(
             "[host] configuring host buffers ({} packets of size {})",
             ACL_N, ACL_LEN,
