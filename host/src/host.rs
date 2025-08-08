@@ -1068,13 +1068,13 @@ impl<'d, C: Controller, P: PacketPool> ControlRunner<'d, C, P> {
         host.connections
             .set_link_credits(ret.total_num_le_acl_data_packets as usize);
 
-        const ACL_LEN: u16 = 1021; //was originally 255, 
-        const ACL_N: u16 = 10;
+        const ACL_LEN: u16 = 50; //was originally 255, 
+        const ACL_N: u16 = 1;
         info!(
             "[host] configuring host buffers ({} packets of size {})",
             ACL_N, ACL_LEN,
         );
-        //HostBufferSize::new(ACL_LEN, 0, ACL_N, 0).exec(&host.controller).await?;
+        HostBufferSize::new(ACL_LEN, 0, ACL_N, 0).exec(&host.controller).await?;
 
         /*
                 #[cfg(feature = "controller-host-flow-control")]
